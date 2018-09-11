@@ -17,44 +17,56 @@
  *
  *  키마다 txt파일(ascii)과 bin파일의 두 파일로 내보내짐
  *  공개키 : FHEcontext와 FHEPubKey 두 객체를 내보냄
- *  비밀키 : FHEcontext, FHESecKey, FHEPubKey 세 객체를 내보냄
+ *  비밀키 : FHEcontext, FHESecKey 두 객체를 내보냄
  *
  */
 int main(int argc, char *argv[]) {
 
     ArgMapping amap;
 
+    long m = 7;
     long r = 1;
+    long p = 65537;
     long c = 2;
     long w = 64;
+    long L = 5;
     long k = 80;
     long d = 1;
+    long s = 0;
+    long cleanup = 1;
 
-    long p = 257;
-    long L = 8;
     string owner = "owner";
-    string dir = "data";
 
     amap.arg("p", p, "plaintext base");
+    amap.arg("r", r, "lifting");
+    amap.arg("c", c, "number of columns in the key-switching matrices");
     amap.arg("L", L, "number of levels wanted");
+    amap.arg("cleanup", cleanup, "cleanup files created");
     amap.arg("o", owner, "owner's address");
-    amap.arg("dir", dir, "save directory");
     amap.parse(argc, argv);
 
     // file names
-    const string secretKeyBinaryFile = dir + "/secretKey/" + owner + ".bin";
-    const string publicKeyBinaryFile = dir + "/publicKey/" + owner + ".bin";
+    const string secretKeyFile = "data/secretKey/" + owner + ".txt";
+    const string secretKeyBinaryFile = "data/secretKey/" + owner + ".bin";
+    const string publicKeyFile = "data/publicKey/" + owner + ".txt";
+    const string publicKeyBinaryFile = "data/publicKey/" + owner + ".bin";
 
+    ofstream secretAsciiFile(secretKeyFile.c_str());
     ofstream secretBinFile(secretKeyBinaryFile.c_str(), ios::binary);
-    assert(secretBinFile.is_open());
+    assert(secretAsciiFile.is_open());
 
+    ofstream publicAsciiFile(publicKeyFile.c_str());
     ofstream publicBinFile(publicKeyBinaryFile.c_str(), ios::binary);
-    assert(publicBinFile.is_open());
+    assert(publicAsciiFile.is_open());
+
+    m = FindM(k, L, c, p, d, s, 0);
 
     // create context
-    long m = FindM(k, L, c, p, d, 0, 0);
     std::unique_ptr<FHEcontext> context(new FHEcontext(m, p, r));
     buildModChain(*context, L, c);  // Set the modulus chain
+
+//        context->zMStar.printout(); // Printout context params
+//        cout << "\tSecurity Level: " << context->securityLevel() << endl;
 
     // create key
     std::unique_ptr<FHESecKey> secKey(new FHESecKey(*context));
@@ -63,12 +75,23 @@ int main(int argc, char *argv[]) {
     addSome1DMatrices(*secKey);
     addFrbMatrices(*secKey);
 
+    // Secret ASCII
+    cout << "\tWriting Secret ASCII file " << secretKeyFile << endl;
+    writeContextBase(secretAsciiFile, *context);
+    secretAsciiFile << *context << endl << endl;
+    secretAsciiFile << *secKey << endl << endl;
+
     // Secret Bin
     cout << "\tWriting Secret Binary file " << secretKeyBinaryFile << endl;
     writeContextBaseBinary(secretBinFile, *context);
     writeContextBinary(secretBinFile, *context);
-    writePubKeyBinary(secretBinFile, *pubKey);
     writeSecKeyBinary(secretBinFile, *secKey);
+
+    // Public ASCII
+    cout << "\tWriting Public ASCII file " << publicKeyFile << endl;
+    writeContextBase(publicAsciiFile, *context);
+    publicAsciiFile << *context << endl << endl;
+    publicAsciiFile << *pubKey << endl << endl;
 
     // Public Bin
     cout << "\tWriting Public Binary file " << publicKeyBinaryFile << endl;
@@ -76,7 +99,9 @@ int main(int argc, char *argv[]) {
     writeContextBinary(publicBinFile, *context);
     writePubKeyBinary(publicBinFile, *pubKey);
 
+    secretAsciiFile.close();
     secretBinFile.close();
+    publicAsciiFile.close();
     publicBinFile.close();
 
     cout << "createKey successful.\n\n";

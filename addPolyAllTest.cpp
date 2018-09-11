@@ -9,44 +9,33 @@
 #include "timing.h"
 #include "EncryptedArray.h"
 
-Ctxt FHE_Add(Ctxt Ea, Ctxt Eb)
-{
-    Ctxt ctSum = Ea;
-    ctSum += Eb;
-    return ctSum;
-}
-
 int main(int argc, char *argv[]) {
     ArgMapping amap;
 
-    long m = 7;
-    long r = 1;
-    long p = 65537;
-    long cleanup = 1;
+    long n = 4;
 
     string owner = "owner";
-    string firstCtxtFileName = "data/candidates-1-owner.txt";
-    string secondCtxtFileName = "data/candidates-2-owner.txt";
-    string resultCtxtFileName = "data/result-owner.txt";
+    string resultCtxtFileName = "data/owner-result.txt";
 
     amap.arg("o", owner, "owner's address");
-    amap.arg("f", firstCtxtFileName, "first Ctxt file's name");
-    amap.arg("s", secondCtxtFileName, "second Ctxt file's name");
     amap.arg("r", resultCtxtFileName, "result Ctxt file's name");
+    amap.arg("n", n, "number of add files");
     amap.parse(argc, argv);
 
     // file names
-    const string secretKeyBinaryFileName = "data/secretKey-" + owner + ".bin";
+    const string secretKeyBinaryFileName = "data/secretKey/" + owner + ".bin";
 
     ifstream secretBinFile(secretKeyBinaryFileName.c_str(), ios::binary);
-    ifstream firstCtxtFile(firstCtxtFileName.c_str(), ios::binary);
-    ifstream secondCtxtFile(secondCtxtFileName.c_str(), ios::binary);
+    fstream CtxtFiles[n];
+    for(long i = 0; i < n; i++) {
+        string fileName = "data/candidate/" + owner + "-" + to_string(i) + ".txt";
+        CtxtFiles[i] = fstream(fileName.c_str(), fstream::in);
+        assert(CtxtFiles[i].is_open());
+    }
     ofstream resultCtxtFile(resultCtxtFileName.c_str(), ios::binary);
 
     // check open file
     assert(secretBinFile.is_open());
-    assert(firstCtxtFile.is_open());
-    assert(secondCtxtFile.is_open());
     assert(resultCtxtFile.is_open());
 
     // Read in context,
@@ -66,16 +55,16 @@ int main(int argc, char *argv[]) {
 
     cout << "read PublicKey & SecretKey successful.\n" << flush;
 
-    // ready to decryption
-    Ctxt firstCtxt(*pubKey);
-    Ctxt secondCtxt(*pubKey);
-
+    // ready to add two Ctxts
     // get Ctxt to file
-    firstCtxtFile >> firstCtxt;
-    secondCtxtFile >> secondCtxt;
+    Ctxt resultCtxt(*pubKey), secondCtxt(*pubKey);
+    CtxtFiles[0] >> resultCtxt;
 
-    // add two Ctxt
-    Ctxt resultCtxt = FHE_Add(firstCtxt, secondCtxt);
+    // add files
+    for(long i = 1; i < n; i++) {
+        CtxtFiles[i] >> secondCtxt;
+        resultCtxt += secondCtxt;
+    }
 
     // show result
     ZZX ptSum;
@@ -84,5 +73,4 @@ int main(int argc, char *argv[]) {
 
     // save resultCtxt
     resultCtxtFile << resultCtxt << endl;
-
 }
