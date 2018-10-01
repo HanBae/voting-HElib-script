@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     // set resultFile
     const string resultFilePath = directoryPath + "/result/" + owner + ".txt";
     ofstream resultFile(resultFilePath.c_str(), ios::binary);
-    assert(resultFile.is_open());
+    assert(resultFile.is_open());K
 
     // get Ctxt files
     getdir(directoryPathWithCtxt, fileNames);
