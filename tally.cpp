@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <cstring>
 
 #include <NTL/ZZX.h>
 #include <NTL/vector.h>
@@ -50,19 +51,30 @@ int main(int argc, char *argv[]) {
     // files name vector list
     vector<string> fileNames = vector<string>();
 
+    // set resultFile
+    const string resultFilePath = directoryPath + "/result/" + owner + ".txt";
+    ofstream resultFile(resultFilePath.c_str(), ios::binary);
+    assert(resultFile.is_open());
+
     // get Ctxt files
     getdir(directoryPathWithCtxt, fileNames);
     const long sizeOfCtxtFile = fileNames.size();
+    if(sizeOfCtxtFile == 0) {
+        string res = "[";
+        for (int i = 0; i < numberOfCandidates; i++) {
+            res.append(to_string(i));
+            if(i != numberOfCandidates-1) res.append(",");
+        }
+        res.append("]");
+
+        resultFile << res;
+        return 0;
+    }
 
     // get public key
     const string secretKeyBinaryFilePath = directoryPath + "/secretKey/" + owner + ".bin";
     ifstream secretBinFile(secretKeyBinaryFilePath.c_str(), ios::binary);
     assert(secretBinFile.is_open());
-
-    // set resultFile
-    const string resultFilePath = directoryPath + "/result/" + owner + ".txt";
-    ofstream resultFile(resultFilePath.c_str(), ios::binary);
-    assert(resultFile.is_open());
 
     // make stream of Ctxt Files
     fstream CtxtFiles[sizeOfCtxtFile];
@@ -105,18 +117,49 @@ int main(int argc, char *argv[]) {
     // encrypt poly
     pubKey->Encrypt(tempCtxt, to_ZZX(tempPoly));
 
-
     // add files
+    ZZX tempCtxtZZX;
+    ostringstream cTxtStream;
+
+
     CtxtFiles[0] >> resultCtxt;
-    resultCtxt += tempCtxt;
+    cTxtStream << resultCtxt;
+    secKey->Decrypt(tempCtxtZZX, resultCtxt);
+
+    cout << "\n" << fileNames[0] << endl;
+    cout << "CypherText: " << cTxtStream.str().substr(0, 20)
+        << " ... " << cTxtStream.str().substr(cTxtStream.str().size() - 63, 50) << endl;
+    cout << "PlainText: " << tempCtxtZZX << endl;
+    cout << "\n+\n" << endl;
+
     for (long i = 1; i < sizeOfCtxtFile; i++) {
         CtxtFiles[i] >> secondCtxt;
         resultCtxt += secondCtxt;
+        cTxtStream << secondCtxt;
+        secKey->Decrypt(tempCtxtZZX, secondCtxt);
+
+        cout << fileNames[i] << endl;
+        cout << "CypherText: " << cTxtStream.str().substr(0, 20)
+             << " ..." << cTxtStream.str().substr(cTxtStream.str().size() - 63, 50) << endl;
+        cout << "PlainText:" << tempCtxtZZX << endl;
+        if(i != sizeOfCtxtFile-1) cout << "\n+\n" << endl;
     }
+    cout << "\n=\n" << endl;
 
     // save result
     ZZX ptSum;
+    cTxtStream << resultCtxt;
     secKey->Decrypt(ptSum, resultCtxt);
-    cout << "result : " << ptSum << endl;
+
+    cout << " [ tally result ]" << endl;
+    cout << "CypherText: " << cTxtStream.str().substr(0, 20)
+         << " ..." << cTxtStream.str().substr(cTxtStream.str().size() - 63, 50) << endl;
+    cout << "PlainText: " << ptSum << endl;
+
+    // last elements +1
+    resultCtxt += tempCtxt;
+    secKey->Decrypt(ptSum, resultCtxt);
+
+    // save result to file
     resultFile << ptSum;
 }
