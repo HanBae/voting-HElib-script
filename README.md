@@ -8,11 +8,10 @@
 ```
 voting-HElib-script
 └── bin
-    └── bin
-    └── src
-    └── test
-    └── HElib
-    └── ...
+└── src
+└── test
+└── HElib
+└── ...
 ```
 
 ### compile
